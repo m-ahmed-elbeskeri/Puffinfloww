@@ -1,0 +1,130 @@
+name: slack
+version: 1.0.0
+description: Slack integration for messaging and workspace operations
+author: Workflow Orchestrator Team
+
+states:
+  send_message:
+    description: Send a message to a Slack channel
+    inputs:
+      channel:
+        type: string
+        required: true
+        description: Channel ID or name (e.g., #general)
+      text:
+        type: string
+        required: true
+      thread_ts:
+        type: string
+        description: Thread timestamp for replies
+      blocks:
+        type: array
+        description: Rich message blocks
+      attachments:
+        type: array
+        description: Message attachments
+      token:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      ts:
+        type: string
+        description: Message timestamp
+      channel:
+        type: string
+      thread_ts:
+        type: string
+    resources:
+      network_weight: 1.0
+      
+  read_messages:
+    description: Read messages from a Slack channel
+    inputs:
+      channel:
+        type: string
+        required: true
+      limit:
+        type: integer
+        default: 10
+      oldest:
+        type: string
+        description: Oldest message timestamp
+      latest:
+        type: string
+        description: Latest message timestamp
+      token:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      messages:
+        type: array
+        items:
+          type: object
+      has_more:
+        type: boolean
+    resources:
+      network_weight: 1.0
+      
+  upload_file:
+    description: Upload a file to Slack
+    inputs:
+      channels:
+        type: array
+        required: true
+        items:
+          type: string
+      content:
+        type: string
+        required: true
+      filename:
+        type: string
+        required: true
+      title:
+        type: string
+      initial_comment:
+        type: string
+      token:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      file_id:
+        type: string
+      url:
+        type: string
+    resources:
+      network_weight: 2.0
+      
+  create_channel:
+    description: Create a new Slack channel
+    inputs:
+      name:
+        type: string
+        required: true
+      is_private:
+        type: boolean
+        default: false
+      description:
+        type: string
+      token:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      channel_id:
+        type: string
+      channel_name:
+        type: string
+    resources:
+      network_weight: 1.0
+
+resources:
+  cpu_units: 0.1
+  memory_mb: 50
+  network_weight: 2.0
+
+dependencies:
+  - slack-sdk
+  - aiofiles

@@ -1,0 +1,100 @@
+name: webhook
+version: 1.0.0
+description: Webhook integration for HTTP requests and webhooks
+author: Workflow Orchestrator Team
+
+states:
+  http_request:
+    description: Make an HTTP request
+    inputs:
+      url:
+        type: string
+        required: true
+        description: URL to request
+      method:
+        type: string
+        default: GET
+        enum: [GET, POST, PUT, DELETE, PATCH]
+      headers:
+        type: object
+        default: {}
+      body:
+        type: any
+        required: false
+      timeout:
+        type: number
+        default: 30
+    outputs:
+      status_code:
+        type: integer
+      headers:
+        type: object
+      body:
+        type: any
+      error:
+        type: string
+        required: false
+    resources:
+      network_weight: 1.0
+      
+  webhook_receiver:
+    description: Receive webhook callbacks
+    inputs:
+      endpoint:
+        type: string
+        required: true
+      timeout:
+        type: number
+        default: 300
+      validation:
+        type: object
+        properties:
+          secret:
+            type: string
+          signature_header:
+            type: string
+    outputs:
+      payload:
+        type: any
+      headers:
+        type: object
+    resources:
+      network_weight: 0.5
+      
+  webhook_sender:
+    description: Send webhook notifications
+    inputs:
+      url:
+        type: string
+        required: true
+      payload:
+        type: any
+        required: true
+      secret:
+        type: string
+        required: false
+      retry:
+        type: object
+        properties:
+          max_attempts:
+            type: integer
+            default: 3
+          backoff:
+            type: number
+            default: 1.0
+    outputs:
+      success:
+        type: boolean
+      response:
+        type: any
+    resources:
+      network_weight: 1.0
+
+resources:
+  cpu_units: 0.1
+  memory_mb: 50
+  network_weight: 2.0
+
+dependencies:
+  - httpx
+  - cryptography

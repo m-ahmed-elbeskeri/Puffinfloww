@@ -1,0 +1,28 @@
+
+# Auto-generated workflow: {{ workflow.name }}
+# Version: {{ workflow.version }}   - generated {{ generated_at }}
+
+import asyncio
+from core.agent import Agent, Context
+
+class {{ workflow.name|title|replace('_','') }}Workflow:
+    def __init__(self):
+        self.agent = Agent("{{ workflow.name }}")
+        self._setup_states()
+
+    def _setup_states(self):
+        {% for state_name in workflow.states.keys() %}
+        self.agent.add_state(name="{{ state_name }}", func=self.{{ state_name }})
+        {% endfor %}
+
+    {% for state_name, state in workflow.states.items() %}
+    async def {{ state_name }}(self, context: Context):
+        {% if state.config.message %}print({{ state.config.message!r }}){% endif %}
+        {% if state.transitions %}return "{{ state.transitions[0].target }}"{% endif %}
+    {% endfor %}
+
+async def main():
+    await {{ workflow.name|title|replace('_','') }}Workflow().agent.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())

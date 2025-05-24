@@ -1,0 +1,108 @@
+name: openai
+version: 1.0.0
+description: OpenAI integration for GPT models and embeddings
+author: Workflow Orchestrator Team
+
+states:
+  chat_completion:
+    description: Generate chat completions using OpenAI GPT models
+    inputs:
+      model:
+        type: string
+        default: gpt-4
+        enum: [gpt-4, gpt-4-turbo, gpt-3.5-turbo]
+      messages:
+        type: array
+        required: true
+        items:
+          type: object
+          properties:
+            role:
+              type: string
+              enum: [system, user, assistant]
+            content:
+              type: string
+      temperature:
+        type: number
+        default: 0.7
+        minimum: 0
+        maximum: 2
+      max_tokens:
+        type: integer
+        default: 1000
+      api_key:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      response:
+        type: string
+      usage:
+        type: object
+        properties:
+          prompt_tokens:
+            type: integer
+          completion_tokens:
+            type: integer
+          total_tokens:
+            type: integer
+    resources:
+      network_weight: 2.0
+      
+  embeddings:
+    description: Generate embeddings using OpenAI models
+    inputs:
+      model:
+        type: string
+        default: text-embedding-ada-002
+      input:
+        type: string
+        required: true
+      api_key:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      embedding:
+        type: array
+        items:
+          type: number
+      dimensions:
+        type: integer
+    resources:
+      network_weight: 1.0
+      
+  function_calling:
+    description: Use OpenAI function calling
+    inputs:
+      model:
+        type: string
+        default: gpt-4
+      messages:
+        type: array
+        required: true
+      functions:
+        type: array
+        required: true
+        items:
+          type: object
+      api_key:
+        type: string
+        required: true
+        secret: true
+    outputs:
+      function_call:
+        type: object
+      response:
+        type: string
+    resources:
+      network_weight: 2.0
+
+resources:
+  cpu_units: 0.2
+  memory_mb: 100
+  network_weight: 3.0
+
+dependencies:
+  - openai
+  - tiktoken

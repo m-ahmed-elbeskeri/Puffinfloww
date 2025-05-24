@@ -1,0 +1,115 @@
+name: gmail
+version: 1.0.0
+description: Gmail integration for sending and reading emails
+author: Workflow Orchestrator Team
+
+states:
+  send_email:
+    description: Send an email via Gmail
+    inputs:
+      to:
+        type: array
+        required: true
+        items:
+          type: string
+          format: email
+      subject:
+        type: string
+        required: true
+      body:
+        type: string
+        required: true
+      cc:
+        type: array
+        items:
+          type: string
+          format: email
+      bcc:
+        type: array
+        items:
+          type: string
+          format: email
+      attachments:
+        type: array
+        items:
+          type: object
+          properties:
+            filename:
+              type: string
+            content:
+              type: string
+              format: base64
+      credentials:
+        type: object
+        required: true
+        secret: true
+    outputs:
+      message_id:
+        type: string
+      thread_id:
+        type: string
+    resources:
+      network_weight: 1.0
+      
+  read_emails:
+    description: Read emails from Gmail
+    inputs:
+      query:
+        type: string
+        default: "is:unread"
+      max_results:
+        type: integer
+        default: 10
+      mark_as_read:
+        type: boolean
+        default: false
+      credentials:
+        type: object
+        required: true
+        secret: true
+    outputs:
+      emails:
+        type: array
+        items:
+          type: object
+      count:
+        type: integer
+    resources:
+      network_weight: 1.0
+      
+  search_emails:
+    description: Search emails in Gmail
+    inputs:
+      query:
+        type: string
+        required: true
+      max_results:
+        type: integer
+        default: 50
+      include_body:
+        type: boolean
+        default: true
+      credentials:
+        type: object
+        required: true
+        secret: true
+    outputs:
+      results:
+        type: array
+        items:
+          type: object
+      total:
+        type: integer
+    resources:
+      network_weight: 1.0
+
+resources:
+  cpu_units: 0.1
+  memory_mb: 100
+  network_weight: 2.0
+
+dependencies:
+  - google-auth
+  - google-auth-oauthlib
+  - google-auth-httplib2
+  - google-api-python-client

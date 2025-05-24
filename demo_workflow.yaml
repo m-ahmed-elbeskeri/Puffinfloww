@@ -1,0 +1,16 @@
+name: demo_workflow
+version: "1.0"
+start_state: say_hello
+end_states: [done]
+
+states:
+  say_hello:
+    type: task
+    config:
+      plugin: echo
+      message: "Hello, world!"
+    transitions: [done]
+
+  done:
+    type: task
+    config: {}

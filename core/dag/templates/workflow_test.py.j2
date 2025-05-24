@@ -1,0 +1,8 @@
+
+import pytest
+import asyncio
+from {{ workflow.name }}_auto import {{ workflow.name|title|replace('_','') }}Workflow
+
+@pytest.mark.asyncio
+async def test_successful_execution():
+    await {{ workflow.name|title|replace('_','') }}Workflow().run()
