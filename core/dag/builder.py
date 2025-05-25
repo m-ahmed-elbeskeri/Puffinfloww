@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Any, Type, Union, Tuple
 from pathlib import Path
 import textwrap
 import black
-import jinja2
 from datetime import datetime
 import structlog
 
@@ -169,11 +168,21 @@ class CodeGenerator:
     
     def __init__(self, template_dir: Optional[Path] = None):
         self.template_dir = template_dir or Path(__file__).parent / "templates"
-        self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(str(self.template_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True
-        )
+        self.jinja_env = None
+        self._init_jinja()
+    
+    def _init_jinja(self):
+        """Initialize Jinja2 environment lazily to avoid circular imports."""
+        try:
+            import jinja2
+            self.jinja_env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(str(self.template_dir)),
+                trim_blocks=True,
+                lstrip_blocks=True
+            )
+        except Exception as e:
+            logger.error("jinja2_init_failed", error=str(e))
+            raise
     
     def generate_workflow_code(
         self,
@@ -181,6 +190,9 @@ class CodeGenerator:
         output_file: Optional[Path] = None
     ) -> str:
         """Generate Python code for workflow."""
+        if self.jinja_env is None:
+            self._init_jinja()
+            
         template = self.jinja_env.get_template("workflow.py.j2")
         
         code = template.render(
@@ -196,12 +208,15 @@ class CodeGenerator:
             logger.warning("code_formatting_failed", error=str(e))
         
         if output_file:
-            output_file.write_text(code)
+            output_file.write_text(code, encoding='utf-8')
         
         return code
     
     def generate_state_code(self, state: StateDefinition) -> str:
         """Generate code for a single state."""
+        if self.jinja_env is None:
+            self._init_jinja()
+            
         template = self.jinja_env.get_template("state_function.py.j2")
         
         return template.render(state=state)
@@ -212,6 +227,9 @@ class CodeGenerator:
         output_file: Optional[Path] = None
     ) -> str:
         """Generate test code for workflow."""
+        if self.jinja_env is None:
+            self._init_jinja()
+            
         template = self.jinja_env.get_template("workflow_test.py.j2")
         
         code = template.render(
@@ -226,7 +244,7 @@ class CodeGenerator:
             logger.warning("test_formatting_failed", error=str(e))
         
         if output_file:
-            output_file.write_text(code)
+            output_file.write_text(code, encoding='utf-8')
         
         return code
     
@@ -279,28 +297,30 @@ class TemplateEngine:
     """Template engine for code generation."""
     
     def __init__(self):
-        self.templates: Dict[str, jinja2.Template] = {}
+        self.templates: Dict[str, Any] = {}
         self._load_builtin_templates()
     
     def _load_builtin_templates(self):
         """Load built-in templates."""
-        # Workflow template
+        # Import jinja2 locally to avoid circular imports
+        import jinja2
+        
+        # Fixed workflow template with proper indentation
         self.templates["workflow"] = jinja2.Template("""
 # Generated workflow: {{ workflow.name }}
 # Version: {{ workflow.version }}
 # Generated at: {{ generated_at }}
 
 import asyncio
-from core import Agent, Context
+from core.agent import Agent, Context
 from core.resources import ResourceRequirements
 
-{% for import in imports %}
+{% for import in imports -%}
 {{ import }}
 {% endfor %}
 
-
 class {{ workflow.name|title|replace('_', '') }}Workflow:
-    \"\"\"{{ workflow.description }}\"\"\"
+    \"\"\"{{ workflow.description or workflow.name }}\"\"\"
     
     def __init__(self):
         self.agent = Agent("{{ workflow.name }}")
@@ -308,55 +328,62 @@ class {{ workflow.name|title|replace('_', '') }}Workflow:
     
     def _setup_states(self):
         \"\"\"Setup workflow states.\"\"\"
-        {% for state_name, state in workflow.states.items() %}
+{%- for state_name, state in workflow.states.items() %}
         # State: {{ state_name }}
         self.agent.add_state(
             name="{{ state_name }}",
             func=self.{{ state_name }},
-            {% if state.dependencies %}
+{%- if state.dependencies %}
             dependencies={
-                {% for dep in state.dependencies %}
+{%- for dep in state.dependencies %}
                 "{{ dep }}": "required",
-                {% endfor %}
+{%- endfor %}
             },
-            {% endif %}
-            {% if state.resources %}
+{%- endif %}
+{%- if state.resources %}
             resources=ResourceRequirements(
                 cpu_units={{ state.resources.cpu_units }},
                 memory_mb={{ state.resources.memory_mb }},
-                {% if state.resources.timeout %}
+{%- if state.resources.timeout %}
                 timeout={{ state.resources.timeout }}
-                {% endif %}
+{%- endif %}
             ),
-            {% endif %}
+{%- endif %}
             max_retries={{ state.retries }}
         )
         
-        {% endfor %}
+{%- endfor %}
     
-    {% for state_name, state in workflow.states.items() %}
+{%- for state_name, state in workflow.states.items() %}
     async def {{ state_name }}(self, context: Context):
         \"\"\"{{ state.metadata.get('description', state_name) }}\"\"\"
-        # State implementation
-        {% if state.config %}
+{%- if state.config %}
+        # State configuration
         config = {{ state.config }}
-        {% endif %}
+{%- endif %}
         
         # TODO: Implement state logic
+{%- if state.config.get('message') %}
+        print({{ state.config.message|tojson }})
+{%- endif %}
         
-        {% if state.transitions|length == 1 %}
+{%- if state.transitions|length == 1 %}
         return "{{ state.transitions[0].target }}"
-        {% elif state.transitions|length > 1 %}
+{%- elif state.transitions|length > 1 %}
         # Multiple transitions - evaluate conditions
-        {% for transition in state.transitions %}
-        {% if transition.condition %}
+{%- for transition in state.transitions %}
+{%- if transition.condition %}
         if {{ transition.condition }}:
             return "{{ transition.target }}"
-        {% endif %}
-        {% endfor %}
-        {% endif %}
+{%- else %}
+        return "{{ transition.target }}"
+{%- endif %}
+{%- endfor %}
+{%- else %}
+        pass
+{%- endif %}
     
-    {% endfor %}
+{%- endfor %}
     
     async def run(self):
         \"\"\"Run the workflow.\"\"\"
@@ -380,27 +407,27 @@ async def {{ state.name }}(context: Context):
     State: {{ state.name }}
     Type: {{ state.type }}
     \"\"\"
-    {% if state.config.get('plugin') %}
+{%- if state.config.get('plugin') %}
     # Using plugin: {{ state.config.plugin }}
     plugin = {{ state.config.plugin|title }}Plugin()
     result = await plugin.execute(context, {{ state.config }})
-    {% else %}
+{%- else %}
     # Custom implementation
     # TODO: Implement state logic
     pass
-    {% endif %}
+{%- endif %}
     
-    {% if state.transitions %}
+{%- if state.transitions %}
     # Transitions
-    {% for transition in state.transitions %}
-    {% if transition.condition %}
+{%- for transition in state.transitions %}
+{%- if transition.condition %}
     if {{ transition.condition }}:
         return "{{ transition.target }}"
-    {% else %}
+{%- else %}
     return "{{ transition.target }}"
-    {% endif %}
-    {% endfor %}
-    {% endif %}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
 """)
     
     def render(self, template_name: str, **context) -> str:
@@ -410,12 +437,12 @@ async def {{ state.name }}(context: Context):
         
         return self.templates[template_name].render(**context)
     
-    def add_template(self, name: str, template: Union[str, jinja2.Template]) -> None:
+    def add_template(self, name: str, template: Union[str, Any]) -> None:
         """Add a custom template."""
+        # Import jinja2 locally
+        import jinja2
+        
         if isinstance(template, str):
             template = jinja2.Template(template)
         
         self.templates[name] = template
-
-
-from typing import Union, Tuple

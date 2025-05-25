@@ -1,0 +1,6 @@
+digraph demo_workflow {
+	rankdir=TB
+	say_hello [label=say_hello fillcolor=lightblue shape=box style=filled]
+	done [label=done fillcolor=lightblue shape=box style=filled]
+	say_hello -> done [label=""]
+}

@@ -1,0 +1,43 @@
+# Core dependencies
+pydantic>=2.0
+structlog
+asyncio-toolkit
+
+# Storage
+aiosqlite
+asyncpg
+
+# Monitoring
+prometheus-client
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation
+
+# Web framework
+fastapi
+uvicorn
+httpx
+aiohttp
+
+# Template and parsing
+jinja2
+pyyaml
+black
+
+# DAG visualization
+networkx
+matplotlib
+graphviz
+
+# Scheduling
+croniter
+
+# File watching
+watchdog
+
+# Email
+aiosmtplib
+
+# Optional for specific features
+aiofiles
+python-multipart
